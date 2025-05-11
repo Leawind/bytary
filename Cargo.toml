@@ -1,0 +1,13 @@
+[package]
+name = "bytary"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "bytary"
+
+[dependencies]
+clap = { version = "4.5.37", features = ["derive"] }
+hex = "0.4.3"
+regex = "1.11.1"
+thiserror = "2.0.12"
