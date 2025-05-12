@@ -77,12 +77,16 @@ impl ConversionGraph {
             .map_or(None, |(f, _)| Some(f.clone()))
     }
 
+    pub fn get_copy_converter() -> Rc<ConvertFn> {
+        Rc::new(|r, w| io::copy(r, w).map(|_| ()))
+    }
+
     /// Get a converter from `from` to `to`.
     ///
     /// If `to` is equals to `from`, return a converter that simply copies the input.
     pub fn get_converter(&self, from: &Format, to: &Format) -> Option<Rc<ConvertFn>> {
         if to == from {
-            return Some(Rc::new(|r, w| io::copy(r, w).map(|_| ())));
+            return Some(Self::get_copy_converter());
         }
         let path = self.find_shortest_path(from, to)?;
 
@@ -90,7 +94,7 @@ impl ConversionGraph {
             return None;
         }
 
-        let converters = self.path_to_converters(path);
+        let converters = self.path_to_converters(&path);
 
         Some(Self::compose(converters))
     }
@@ -146,7 +150,7 @@ impl ConversionGraph {
         Some(dijkstra(from, |n| self.successors(n), |f| f == to)?.0)
     }
 
-    pub fn path_to_converters(&self, path: Vec<Format>) -> Vec<Rc<ConvertFn>> {
+    pub fn path_to_converters(&self, path: &Vec<Format>) -> Vec<Rc<ConvertFn>> {
         path.windows(2)
             .map(|w| self.get_direct_converter(&w[0], &w[1]).unwrap())
             .collect()

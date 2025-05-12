@@ -60,22 +60,30 @@ fn bytary_cli(args: BytaryArgs, input: &mut dyn io::Read, output: &mut dyn io::W
     let from = Format::from(args.from.as_str());
 
     let path = graph.find_shortest_path(&from, &to).unwrap();
+    let converters = graph.path_to_converters(&path);
+
     if args.verbose {
-        eprintln!(
-            "Convert: {}",
-            path.iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<String>>()
-                .join(" => ")
-        );
+        if converters.is_empty() {
+            eprintln!("Copy data")
+        } else {
+            eprintln!(
+                "Convert: {}",
+                path.iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" => ")
+            )
+        }
         eprintln!(
             "Formatting: space every {} bytes, break line every {} bytes",
             args.space_interval, args.wrap_interval
         );
     }
 
-    let converters = graph.path_to_converters(path);
-    let converter = ConversionGraph::compose(converters);
+    let converter = match converters.is_empty() {
+        true => ConversionGraph::get_copy_converter(),
+        false => ConversionGraph::compose(converters),
+    };
 
     let mut writer = FormattedWriter::new(output, args.space_interval, args.wrap_interval);
     if let Err(e) = converter(input, &mut writer) {
@@ -94,7 +102,7 @@ mod test {
     use std::io::Cursor;
 
     #[test]
-    pub fn test_cli() {
+    pub fn test_cli_bytes_to_hex() {
         let mut output = Vec::new();
         bytary_cli(
             BytaryArgs {
@@ -109,5 +117,24 @@ mod test {
             &mut output,
         );
         assert_eq!(output, b"1b348fff000e");
+    }
+
+    #[test]
+    pub fn test_bytes_to_bytes() {
+        let mut output = Vec::new();
+        let data = [0x1b, 0x34, 0x8f, 0xff, 0x00, 0x0e];
+        bytary_cli(
+            BytaryArgs {
+                list_formats: false,
+                to: "bytes".to_string(),
+                from: "bytes".to_string(),
+                space_interval: 0,
+                wrap_interval: 0,
+                verbose: true,
+            },
+            &mut Cursor::new(&data),
+            &mut output,
+        );
+        assert_eq!(output, &data);
     }
 }
