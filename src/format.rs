@@ -20,7 +20,7 @@ impl Default for Format {
 impl TryFrom<&str> for Format {
     type Error = BytaryError;
     fn try_from(name: &str) -> BytaryResult<Self> {
-        match name {
+        match name.to_lowercase().as_str() {
             "bytes" => Ok(Format::Bytes),
             "bin" => Ok(Format::Bin),
             "hex" => Ok(Format::Hex),
