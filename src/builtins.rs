@@ -1,4 +1,5 @@
 use crate::convert::ConversionGraph;
+use crate::error::{BytaryError, BytaryResult};
 use crate::format::Format;
 use regex::Regex;
 use std::io;
@@ -24,7 +25,7 @@ impl ConversionGraph {
     }
 }
 
-pub fn bytes_to_bin(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()> {
+pub fn bytes_to_bin(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = [0u8; 1024];
@@ -45,12 +46,12 @@ pub fn bytes_to_bin(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<
     Ok(())
 }
 
-pub fn bin_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()> {
+pub fn bin_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = String::new();
 
-    let re = Regex::new(r"[^01]").unwrap();
+    let re = Regex::new(r"[^0-9]").unwrap();
 
     while reader.read_to_string(&mut buffer)? > 0 {
         let clean_bin = re.replace_all(&buffer, "");
@@ -78,9 +79,9 @@ pub fn bin_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()
             .map(|bin4| {
                 u8::from_str_radix(bin4, 2)
                     .map(|n| format!("{:x}", n))
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+                    .map_err(|e| BytaryError::InvalidInputData(e.to_string()))
             })
-            .collect::<io::Result<String>>()?;
+            .collect::<BytaryResult<String>>()?;
 
         writer.write_all(hex_str.as_bytes())?;
         buffer.clear();
@@ -88,7 +89,7 @@ pub fn bin_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()
 
     Ok(())
 }
-pub fn bytes_to_oct(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()> {
+pub fn bytes_to_oct(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = [0u8; 1024];
@@ -109,7 +110,7 @@ pub fn bytes_to_oct(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<
     Ok(())
 }
 
-pub fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()> {
+pub fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = String::new();
@@ -131,7 +132,7 @@ pub fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<
             .chunks(3)
             .map(|chunk| {
                 let oct_str = std::str::from_utf8(chunk)
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+                    .map_err(|e| BytaryError::InvalidInputData(e.to_string()))?;
 
                 // Handle cases where the last chunk might be shorter than 3 digits
                 let oct_str = if oct_str.len() < 3 {
@@ -142,9 +143,9 @@ pub fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<
                 };
 
                 u8::from_str_radix(&oct_str, 8)
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+                    .map_err(|e| BytaryError::InvalidInputData(e.to_string()))
             })
-            .collect::<io::Result<Vec<u8>>>()?;
+            .collect::<BytaryResult<Vec<u8>>>()?;
 
         writer.write_all(&chunks)?;
         buffer.clear();
@@ -152,7 +153,7 @@ pub fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<
 
     Ok(())
 }
-pub fn bytes_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()> {
+pub fn bytes_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = [0u8; 1024];
@@ -168,22 +169,16 @@ pub fn bytes_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<
     Ok(())
 }
 
-pub fn hex_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> io::Result<()> {
+pub fn hex_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = String::new();
 
     let re = Regex::new(r"[\n\r\t]+").unwrap();
     while reader.read_to_string(&mut buffer)? > 0 {
-        match hex::decode(re.replace_all(&buffer, "").as_ref()) {
-            Ok(bytes) => writer.write_all(&bytes)?,
-            Err(e) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("Invalid hex string: {}", e),
-                ));
-            }
-        }
+        let bytes = hex::decode(re.replace_all(&buffer, "").as_ref())
+            .map_err(|e| BytaryError::InvalidInputData(format!("Invalid hex string: {}", e)))?;
+        writer.write_all(&bytes)?;
         buffer.clear();
     }
     Ok(())

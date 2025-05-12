@@ -1,3 +1,4 @@
+use crate::error::BytaryResult;
 use crate::format::Format;
 use pathfinding::prelude::dijkstra;
 use std::collections::HashMap;
@@ -6,7 +7,7 @@ use std::io::{Read, Write};
 use std::rc::Rc;
 
 /// A function that converts from one format to another.
-type ConvertFn = dyn Fn(&mut dyn Read, &mut dyn Write) -> io::Result<()>;
+type ConvertFn = dyn Fn(&mut dyn Read, &mut dyn Write) -> BytaryResult<()>;
 
 /// A graph of conversion functions
 ///
@@ -57,7 +58,7 @@ impl ConversionGraph {
     }
 
     /// Adds a direct conversion to the graph
-    pub fn add_direct<T: Fn(&mut dyn Read, &mut dyn Write) -> io::Result<()> + 'static>(
+    pub fn add_direct<T: Fn(&mut dyn Read, &mut dyn Write) -> BytaryResult<()> + 'static>(
         &mut self,
         from: Format,
         to: Format,
@@ -78,7 +79,10 @@ impl ConversionGraph {
     }
 
     pub fn get_copy_converter() -> Rc<ConvertFn> {
-        Rc::new(|r, w| io::copy(r, w).map(|_| ()))
+        Rc::new(|r, w| {
+            io::copy(r, w)?;
+            Ok(())
+        })
     }
 
     /// Get a converter from `from` to `to`.

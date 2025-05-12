@@ -1,10 +1,11 @@
 use crate::convert::ConversionGraph;
+use crate::error::BytaryResult;
 use crate::format::Format;
-use std::io::{Cursor, Result};
+use std::io::Cursor;
 use strum::IntoEnumIterator;
 
 #[test]
-fn test_builtins() -> Result<()> {
+fn test_builtins() -> BytaryResult<()> {
     use crate::format::Format::*;
 
     FromTo(Bin, Hex).expect_eq(b"0001 1011\n0011 0100\n", b"1b34")?;
@@ -20,7 +21,7 @@ fn test_builtins() -> Result<()> {
 }
 
 #[test]
-fn test_all() -> Result<()> {
+fn test_all() -> BytaryResult<()> {
     use crate::format::Format;
 
     let graph = ConversionGraph::builtins();
@@ -62,7 +63,7 @@ fn test_all() -> Result<()> {
 
 struct FromTo(Format, Format);
 impl FromTo {
-    fn output(&self, input: &[u8]) -> Result<Vec<u8>> {
+    fn output(&self, input: &[u8]) -> BytaryResult<Vec<u8>> {
         let converter = ConversionGraph::builtins()
             .get_converter(&self.0, &self.1)
             .unwrap();
@@ -71,11 +72,11 @@ impl FromTo {
         Ok(output)
     }
 
-    fn expect_eq(&self, input: &[u8], expect_output: &[u8]) -> Result<()> {
+    fn expect_eq(&self, input: &[u8], expect_output: &[u8]) -> BytaryResult<()> {
         assert_eq!(self.output(input)?, expect_output);
         Ok(())
     }
-    fn expect_ne(&self, input: &[u8], expect_output: &[u8]) -> Result<()> {
+    fn expect_ne(&self, input: &[u8], expect_output: &[u8]) -> BytaryResult<()> {
         assert_ne!(self.output(input)?, expect_output);
         Ok(())
     }
