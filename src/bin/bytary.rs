@@ -1,4 +1,5 @@
 use bytary::convert::ConversionGraph;
+use bytary::error::{BytaryResult, ConvertError};
 use bytary::format::Format;
 use bytary::utils::FormattedWriter;
 use clap::Parser;
@@ -41,7 +42,11 @@ pub struct BytaryArgs {
     pub verbose: bool,
 }
 
-fn bytary_cli(args: BytaryArgs, input: &mut dyn io::Read, output: &mut dyn io::Write) {
+fn bytary_cli(
+    args: BytaryArgs,
+    input: &mut dyn io::Read,
+    output: &mut dyn io::Write,
+) -> BytaryResult {
     let graph = ConversionGraph::builtins();
 
     if args.list_formats {
@@ -53,21 +58,24 @@ fn bytary_cli(args: BytaryArgs, input: &mut dyn io::Read, output: &mut dyn io::W
                 .collect::<Vec<String>>()
                 .join(", ")
         );
-        return;
+        return Ok(());
     }
 
     let to = Format::from(args.to.as_str());
     let from = Format::from(args.from.as_str());
 
-    let path = graph.find_shortest_path(&from, &to).unwrap();
-    let converters = graph.path_to_converters(&path);
+    let path = graph
+        .find_shortest_path(&from, &to)
+        .ok_or(ConvertError::UnsupportedConversion(from, to))?;
+
+    let converters = graph.path_to_converters(&path).unwrap();
 
     if args.verbose {
         if converters.is_empty() {
-            eprintln!("Copy data")
+            eprintln!("Operation: Copy data")
         } else {
             eprintln!(
-                "Convert: {}",
+                "Operation: {}",
                 path.iter()
                     .map(|f| f.to_string())
                     .collect::<Vec<String>>()
@@ -86,14 +94,13 @@ fn bytary_cli(args: BytaryArgs, input: &mut dyn io::Read, output: &mut dyn io::W
     };
 
     let mut writer = FormattedWriter::new(output, args.space_interval, args.wrap_interval);
-    if let Err(e) = converter(input, &mut writer) {
-        eprintln!("{}", e);
-        std::process::exit(1);
-    }
+    Ok(converter(input, &mut writer)?)
 }
 
 fn main() {
-    bytary_cli(BytaryArgs::parse(), &mut io::stdin(), &mut io::stdout())
+    if let Err(e) = bytary_cli(BytaryArgs::parse(), &mut io::stdin(), &mut io::stdout()) {
+        eprintln!("{}", e);
+    }
 }
 
 #[cfg(test)]
@@ -115,7 +122,8 @@ mod test {
             },
             &mut Cursor::new(vec![0x1b, 0x34, 0x8f, 0xff, 0x00, 0x0e]),
             &mut output,
-        );
+        )
+        .unwrap();
         assert_eq!(output, b"1b348fff000e");
     }
 
@@ -134,7 +142,8 @@ mod test {
             },
             &mut Cursor::new(&data),
             &mut output,
-        );
+        )
+        .unwrap();
         assert_eq!(output, &data);
     }
 }

@@ -94,7 +94,7 @@ impl ConversionGraph {
             return None;
         }
 
-        let converters = self.path_to_converters(&path);
+        let converters = self.path_to_converters(&path).unwrap();
 
         Some(Self::compose(converters))
     }
@@ -150,9 +150,11 @@ impl ConversionGraph {
         Some(dijkstra(from, |n| self.successors(n), |f| f == to)?.0)
     }
 
-    pub fn path_to_converters(&self, path: &Vec<Format>) -> Vec<Rc<ConvertFn>> {
-        path.windows(2)
-            .map(|w| self.get_direct_converter(&w[0], &w[1]).unwrap())
-            .collect()
+    pub fn path_to_converters(&self, path: &Vec<Format>) -> Option<Vec<Rc<ConvertFn>>> {
+        let converters = path
+            .windows(2)
+            .map_while(|w| Some(self.get_direct_converter(&w[0], &w[1])?))
+            .collect();
+        Some(converters)
     }
 }

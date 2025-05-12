@@ -4,11 +4,11 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ConvertError {
-    #[error("Unsupported conversion: {0} → {1}")]
+    #[error("Unsupported conversion: {0} => {1}")]
     UnsupportedConversion(Format, Format),
 
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 }
 
-pub type Result = std::result::Result<(), ConvertError>;
+pub type BytaryResult = Result<(), ConvertError>;
