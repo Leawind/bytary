@@ -8,38 +8,38 @@ use strum::IntoEnumIterator;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-pub struct BytaryArgs {
+struct BytaryArgs {
     /// List all supported formats and exit
     ///
     /// If set, all other arguments are ignored.
     #[arg(short, long, default_value_t = false)]
-    pub list_formats: bool,
+    list_formats: bool,
 
     /// Output format
     #[arg(default_value = "bytes")]
-    pub to: String,
+    to: String,
 
     /// Input format
     ///
     /// Default is bytes
     #[arg(default_value = "bytes")]
-    pub from: String,
+    from: String,
 
     /// Space interval between bytes
     ///
     /// 0 means no space
     #[arg(short, long = "space", default_value_t = 0)]
-    pub space_interval: usize,
+    space_interval: usize,
 
     /// Line wrap interval
     ///
     /// 0 means no line wrap
     #[arg(short, long = "wrap", default_value_t = 0)]
-    pub wrap_interval: usize,
+    wrap_interval: usize,
 
     /// Use verbose output
     #[arg(short, long, default_value_t = false)]
-    pub verbose: bool,
+    verbose: bool,
 }
 
 fn bytary_cli(
@@ -47,13 +47,13 @@ fn bytary_cli(
     input: &mut dyn io::Read,
     output: &mut dyn io::Write,
 ) -> BytaryResult<()> {
-    let graph = ConversionGraph::builtins();
+    let graph = ConversionGraph::default();
 
     if args.list_formats {
         println!(
             "Available formats: {}",
             Format::iter()
-                .filter(|to| graph.can_convert_both(&Format::default(), &to))
+                .filter(|to| graph.can_convert_between(&Format::default(), &to))
                 .map(|f| f.to_string())
                 .collect::<Vec<String>>()
                 .join(", ")
@@ -109,7 +109,7 @@ mod test {
     use std::io::Cursor;
 
     #[test]
-    pub fn test_cli_bytes_to_hex() {
+    fn test_cli_bytes_to_hex() {
         let mut output = Vec::new();
         bytary_cli(
             BytaryArgs {
@@ -128,7 +128,7 @@ mod test {
     }
 
     #[test]
-    pub fn test_bytes_to_bytes() {
+    fn test_bytes_to_bytes() {
         let mut output = Vec::new();
         let data = [0x1b, 0x34, 0x8f, 0xff, 0x00, 0x0e];
         bytary_cli(

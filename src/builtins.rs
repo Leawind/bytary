@@ -8,9 +8,9 @@ use std::io::{Read, Write};
 #[cfg(test)]
 mod test;
 
-impl ConversionGraph {
-    /// Create a new graph with built-in conversions.
-    pub fn builtins() -> Self {
+impl Default for ConversionGraph {
+    /// Create a new [`ConversionGraph`] with built-in conversions.
+    fn default() -> Self {
         let mut graph = ConversionGraph::new();
         graph.add_direct(Format::Bytes, Format::Bin, bytes_to_bin, 1);
         graph.add_direct(Format::Bin, Format::Hex, bin_to_hex, 1);
@@ -25,7 +25,7 @@ impl ConversionGraph {
     }
 }
 
-pub fn bytes_to_bin(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
+fn bytes_to_bin(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = [0u8; 1024];
@@ -46,7 +46,7 @@ pub fn bytes_to_bin(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResul
     Ok(())
 }
 
-pub fn bin_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
+fn bin_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = String::new();
@@ -89,7 +89,7 @@ pub fn bin_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<
 
     Ok(())
 }
-pub fn bytes_to_oct(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
+fn bytes_to_oct(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = [0u8; 1024];
@@ -110,7 +110,7 @@ pub fn bytes_to_oct(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResul
     Ok(())
 }
 
-pub fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
+fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = String::new();
@@ -153,7 +153,7 @@ pub fn oct_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResul
 
     Ok(())
 }
-pub fn bytes_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
+fn bytes_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = [0u8; 1024];
@@ -169,7 +169,7 @@ pub fn bytes_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResul
     Ok(())
 }
 
-pub fn hex_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
+fn hex_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = String::new();

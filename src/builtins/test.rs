@@ -24,7 +24,7 @@ fn test_builtins() -> BytaryResult<()> {
 fn test_all() -> BytaryResult<()> {
     use crate::format::Format;
 
-    let graph = ConversionGraph::builtins();
+    let graph = ConversionGraph::default();
 
     let data = [
         0x00, 0xff, 0x01, 0x20, 0x17, 0x1b, 0x34, 0x41, 0x65, 0x8f, 0x0e,
@@ -64,7 +64,7 @@ fn test_all() -> BytaryResult<()> {
 struct FromTo(Format, Format);
 impl FromTo {
     fn output(&self, input: &[u8]) -> BytaryResult<Vec<u8>> {
-        let converter = ConversionGraph::builtins()
+        let converter = ConversionGraph::default()
             .get_converter(&self.0, &self.1)
             .unwrap();
         let mut output = Vec::new();
