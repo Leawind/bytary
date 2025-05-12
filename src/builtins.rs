@@ -168,13 +168,12 @@ fn bytes_to_hex(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()
     }
     Ok(())
 }
-
 fn hex_to_bytes(input: &mut dyn Read, output: &mut dyn Write) -> BytaryResult<()> {
     let mut reader = io::BufReader::new(input);
     let mut writer = io::BufWriter::new(output);
     let mut buffer = String::new();
 
-    let re = Regex::new(r"[\n\r\t]+").unwrap();
+    let re = Regex::new(r"[\s\n]+").unwrap();
     while reader.read_to_string(&mut buffer)? > 0 {
         let bytes = hex::decode(re.replace_all(&buffer, "").as_ref())
             .map_err(|e| BytaryError::InvalidInputData(format!("Invalid hex string: {}", e)))?;

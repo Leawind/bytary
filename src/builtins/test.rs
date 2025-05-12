@@ -14,6 +14,7 @@ fn test_builtins() -> BytaryResult<()> {
     FromTo(Oct, Bytes).expect_eq(b"016070", &[0o16, 0o70])?;
 
     FromTo(Hex, Bytes).expect_eq(b"1b34", &[0x1b, 0x34])?;
+    FromTo(Hex, Bytes).expect_eq(b"1b\t \n34", &[0x1b, 0x34])?;
     FromTo(Hex, Bytes).expect_ne(b"1b34", &[0x1b, 0x35])?;
     FromTo(Hex, Bytes).expect_eq(b"1b348fFf000e", &[0x1b, 0x34, 0x8f, 0xff, 0x00, 0x0e])?;
 
