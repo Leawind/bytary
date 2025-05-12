@@ -3,7 +3,10 @@ use std::io;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ConvertError {
+pub enum BytaryError {
+    #[error("Invalid Format: '{0}'")]
+    InvalidFormat(String),
+
     #[error("Unsupported conversion: {0} => {1}")]
     UnsupportedConversion(Format, Format),
 
@@ -11,4 +14,4 @@ pub enum ConvertError {
     Io(#[from] io::Error),
 }
 
-pub type BytaryResult = Result<(), ConvertError>;
+pub type BytaryResult<T> = Result<T, BytaryError>;

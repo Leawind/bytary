@@ -1,5 +1,5 @@
 use bytary::convert::ConversionGraph;
-use bytary::error::{BytaryResult, ConvertError};
+use bytary::error::{BytaryError, BytaryResult};
 use bytary::format::Format;
 use bytary::utils::FormattedWriter;
 use clap::Parser;
@@ -46,7 +46,7 @@ fn bytary_cli(
     args: BytaryArgs,
     input: &mut dyn io::Read,
     output: &mut dyn io::Write,
-) -> BytaryResult {
+) -> BytaryResult<()> {
     let graph = ConversionGraph::builtins();
 
     if args.list_formats {
@@ -61,12 +61,12 @@ fn bytary_cli(
         return Ok(());
     }
 
-    let to = Format::from(args.to.as_str());
-    let from = Format::from(args.from.as_str());
+    let to = Format::try_from(args.to.as_str())?;
+    let from = Format::try_from(args.from.as_str())?;
 
     let path = graph
         .find_shortest_path(&from, &to)
-        .ok_or(ConvertError::UnsupportedConversion(from, to))?;
+        .ok_or(BytaryError::UnsupportedConversion(from, to))?;
 
     let converters = graph.path_to_converters(&path).unwrap();
 

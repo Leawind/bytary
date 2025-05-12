@@ -1,3 +1,4 @@
+use crate::error::{BytaryError, BytaryResult};
 use std::fmt::{Display, Formatter};
 use strum::EnumIter;
 
@@ -10,17 +11,23 @@ pub enum Format {
     Base32,
     Base64,
 }
+impl Default for Format {
+    fn default() -> Self {
+        Format::Bytes
+    }
+}
 
-impl From<&str> for Format {
-    fn from(s: &str) -> Self {
-        match s {
-            "bytes" => Format::Bytes,
-            "bin" => Format::Bin,
-            "hex" => Format::Hex,
-            "oct" => Format::Oct,
-            "base32" => Format::Base32,
-            "base64" => Format::Base64,
-            _ => panic!("Invalid format {}", s),
+impl TryFrom<&str> for Format {
+    type Error = BytaryError;
+    fn try_from(name: &str) -> BytaryResult<Self> {
+        match name {
+            "bytes" => Ok(Format::Bytes),
+            "bin" => Ok(Format::Bin),
+            "hex" => Ok(Format::Hex),
+            "oct" => Ok(Format::Oct),
+            "base32" => Ok(Format::Base32),
+            "base64" => Ok(Format::Base64),
+            _ => Err(BytaryError::InvalidFormat(name.to_string())),
         }
     }
 }
@@ -35,11 +42,5 @@ impl Display for Format {
             Format::Base32 => write!(f, "base32"),
             Format::Base64 => write!(f, "base64"),
         }
-    }
-}
-
-impl Default for Format {
-    fn default() -> Self {
-        Format::Bytes
     }
 }
