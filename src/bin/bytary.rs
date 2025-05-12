@@ -3,11 +3,19 @@ use bytary::format::Format;
 use bytary::utils::FormattedWriter;
 use clap::Parser;
 use std::io;
+use strum::IntoEnumIterator;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct BytaryArgs {
+    /// List all supported formats and exit
+    ///
+    /// If set, all other arguments are ignored.
+    #[arg(short, long, default_value_t = false)]
+    pub list_formats: bool,
+
     /// Output format
+    #[arg(default_value = "bytes")]
     pub to: String,
 
     /// Input format
@@ -34,10 +42,22 @@ pub struct BytaryArgs {
 }
 
 fn bytary_cli(args: BytaryArgs, input: &mut dyn io::Read, output: &mut dyn io::Write) {
+    let graph = ConversionGraph::builtins();
+
+    if args.list_formats {
+        println!(
+            "Available formats: {}",
+            Format::iter()
+                .filter(|to| graph.can_convert_both(&Format::default(), &to))
+                .map(|f| f.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
+        return;
+    }
+
     let to = Format::from(args.to.as_str());
     let from = Format::from(args.from.as_str());
-
-    let graph = ConversionGraph::builtins();
 
     let path = graph.find_shortest_path(&from, &to).unwrap();
     if args.verbose {
@@ -78,6 +98,7 @@ mod test {
         let mut output = Vec::new();
         bytary_cli(
             BytaryArgs {
+                list_formats: false,
                 to: "hex".to_string(),
                 from: "bytes".to_string(),
                 space_interval: 0,

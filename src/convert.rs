@@ -95,6 +95,44 @@ impl ConversionGraph {
         Some(Self::compose(converters))
     }
 
+    /// ```rust
+    /// use bytary::convert::ConversionGraph;
+    /// use bytary::format::Format::*;
+    ///
+    /// let mut graph = ConversionGraph::new();
+    ///
+    /// graph.add_direct(Bytes, Hex, |_,_| Ok(()), 1);
+    /// assert!(graph.can_convert(&Bytes, &Hex));
+    /// assert!(!graph.can_convert(&Hex, &Bytes));
+    /// ```
+    pub fn can_convert(&self, from: &Format, to: &Format) -> bool {
+        if from == to {
+            return true;
+        }
+        self.find_shortest_path(from, to).is_some()
+    }
+
+    /// ```rust
+    /// use bytary::convert::ConversionGraph;
+    /// use bytary::format::Format::*;
+    ///
+    /// let mut graph = ConversionGraph::new();
+    ///
+    /// graph.add_direct(Bytes, Hex, |_,_| Ok(()), 1);
+    /// assert!(!graph.can_convert_both(&Bytes, &Hex));
+    ///
+    /// graph.add_direct(Hex, Bytes, |_,_| Ok(()), 1);
+    /// assert!(graph.can_convert_both(&Bytes, &Hex));
+    /// ```
+    pub fn can_convert_both(&self, format1: &Format, format2: &Format) -> bool {
+        if format1 == format2 {
+            return true;
+        }
+        self.find_shortest_path(format1, format2)
+            .and(self.find_shortest_path(format2, format1))
+            .is_some()
+    }
+
     fn successors(&self, n: &Format) -> Vec<(Format, u32)> {
         self.graph
             .get(&n)
