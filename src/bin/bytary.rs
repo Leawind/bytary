@@ -6,8 +6,9 @@ use clap::Parser;
 use std::io;
 use strum::IntoEnumIterator;
 
+/// A simple CLI tool for binary data manipulation
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about)]
 struct BytaryArgs {
     /// List all supported formats and exit
     ///
