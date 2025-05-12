@@ -1,20 +1,12 @@
-use bytary::convert::convert;
-use bytary::{Format, FormattedWriter};
+use bytary::convert::ConversionGraph;
+use bytary::format::Format;
+use bytary::utils::FormattedWriter;
 use clap::Parser;
 use std::io;
 
-/// Usage:
-///
-/// ```sh
-/// bytary <from> <to>
-/// ```
-///
-/// ```sh
-/// bytary <to>
-/// ```
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-pub struct BytaryCli {
+pub struct BytaryArgs {
     /// Output format
     pub to: String,
 
@@ -31,33 +23,70 @@ pub struct BytaryCli {
     pub space_interval: usize,
 
     /// Line wrap interval
+    ///
+    /// 0 means no line wrap
     #[arg(short, long = "wrap", default_value_t = 0)]
     pub wrap_interval: usize,
 
+    /// Use verbose output
     #[arg(short, long, default_value_t = false)]
     pub verbose: bool,
 }
 
-fn main() {
-    let args = BytaryCli::parse();
-
+fn bytary_cli(args: BytaryArgs, input: &mut dyn io::Read, output: &mut dyn io::Write) {
     let to = Format::from(args.to.as_str());
     let from = Format::from(args.from.as_str());
 
+    let graph = ConversionGraph::builtins();
+
+    let path = graph.find_shortest_path(&from, &to).unwrap();
     if args.verbose {
-        eprintln!("Convert: {:?} ==> {:?}", from, to);
+        eprintln!(
+            "Convert: {}",
+            path.iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<String>>()
+                .join(" => ")
+        );
         eprintln!(
             "Formatting: space every {} bytes, break line every {} bytes",
             args.space_interval, args.wrap_interval
         );
     }
 
-    let mut writer = FormattedWriter::new(io::stdout(), args.space_interval, args.wrap_interval);
-    match convert(&from, &to, &mut io::stdin(), &mut writer) {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("{}", e);
-            std::process::exit(1);
-        }
+    let converters = graph.path_to_converters(path);
+    let converter = ConversionGraph::compose(converters);
+
+    let mut writer = FormattedWriter::new(output, args.space_interval, args.wrap_interval);
+    if let Err(e) = converter(input, &mut writer) {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    }
+}
+
+fn main() {
+    bytary_cli(BytaryArgs::parse(), &mut io::stdin(), &mut io::stdout())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::*;
+    use std::io::Cursor;
+
+    #[test]
+    pub fn test_cli() {
+        let mut output = Vec::new();
+        bytary_cli(
+            BytaryArgs {
+                to: "hex".to_string(),
+                from: "bytes".to_string(),
+                space_interval: 0,
+                wrap_interval: 0,
+                verbose: true,
+            },
+            &mut Cursor::new(vec![0x1b, 0x34, 0x8f, 0xff, 0x00, 0x0e]),
+            &mut output,
+        );
+        assert_eq!(output, b"1b348fff000e");
     }
 }

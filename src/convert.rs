@@ -1,60 +1,116 @@
-use crate::Format;
-use crate::error::ConvertError;
-use regex::Regex;
+use crate::format::Format;
+use pathfinding::prelude::dijkstra;
+use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
+use std::rc::Rc;
 
-pub fn convert<R: Read, W: Write>(
-    from: &Format,
-    to: &Format,
-    input: &mut R,
-    output: &mut W,
-) -> crate::error::Result {
-    match (from, to) {
-        (Format::Bytes, Format::Hex) => Ok(bytes_to_hex(input, output)?),
-        (Format::Hex, Format::Bytes) => Ok(hex_to_bytes(input, output)?),
-        _ => Err(ConvertError::UnsupportedConversion(
-            from.clone(),
-            to.clone(),
-        )),
-    }
+/// A function that converts from one format to another.
+type ConvertFn = dyn Fn(&mut dyn Read, &mut dyn Write) -> io::Result<()>;
+
+/// A graph of conversion functions
+///
+/// ```rust
+/// use bytary::convert::ConversionGraph;
+/// use bytary::format::Format;
+///
+/// let graph = ConversionGraph::builtins();
+/// let conv = graph.get_converter(&Format::Bytes, &Format::Hex).unwrap();
+/// ```
+pub struct ConversionGraph {
+    /// {Format -> {Format -> (ConvertFn, Cost)}}
+    graph: HashMap<Format, HashMap<Format, (Rc<ConvertFn>, u32)>>,
 }
 
-pub type ConverterFn = fn(&mut dyn Read, &mut dyn Write) -> crate::error::Result;
-
-pub fn bytes_to_hex<R: Read, W: Write>(input: &mut R, output: &mut W) -> io::Result<()> {
-    let mut reader = io::BufReader::new(input);
-    let mut writer = io::BufWriter::new(output);
-    let mut buffer = [0u8; 1024]; // 每次读取 1KB
-
-    loop {
-        let length = reader.read(&mut buffer)?;
-        if length == 0 {
-            break;
+impl ConversionGraph {
+    pub fn compose(converters: Vec<Rc<ConvertFn>>) -> Rc<ConvertFn> {
+        if converters.len() == 1 {
+            return converters[0].clone();
         }
-        let hex_str = hex::encode(&buffer[..length]);
-        writer.write_all(hex_str.as_bytes())?;
-    }
-    Ok(())
-}
 
-pub fn hex_to_bytes<R: Read, W: Write>(input: R, output: W) -> io::Result<()> {
-    let mut reader = io::BufReader::new(input);
-    let mut writer = io::BufWriter::new(output);
-    let mut buffer = String::new();
+        Rc::new(move |input: &mut dyn Read, output: &mut dyn Write| {
+            let mut prev_output: Box<dyn Read> = Box::new(input);
 
-    let re = Regex::new(r"[\n\r\t]+").unwrap();
-    while reader.read_to_string(&mut buffer)? > 0 {
-        match hex::decode(re.replace_all(&buffer, "").as_ref()) {
-            Ok(bytes) => writer.write_all(&bytes)?,
-            Err(e) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("Invalid hex string: {}", e),
-                ));
+            for converter in converters.iter().take(converters.len().saturating_sub(1)) {
+                let mut buffer = Vec::new();
+                converter(&mut prev_output, &mut buffer)?;
+                prev_output = Box::new(io::Cursor::new(buffer));
             }
-        }
-        buffer.clear();
+
+            if let Some(last_processor) = converters.last() {
+                last_processor(&mut prev_output, output)?;
+            }
+
+            Ok(())
+        })
     }
-    Ok(())
+
+    /// Create a new empty graph.
+    pub fn new() -> Self {
+        Self {
+            graph: HashMap::new(),
+        }
+    }
+    /// Returns the number of conversions in the graph
+    pub fn size(&self) -> usize {
+        self.graph.iter().map(|(_, h)| h.len()).sum()
+    }
+
+    /// Adds a direct conversion to the graph
+    pub fn add_direct<T: Fn(&mut dyn Read, &mut dyn Write) -> io::Result<()> + 'static>(
+        &mut self,
+        from: Format,
+        to: Format,
+        converter: T,
+        cost: u32,
+    ) {
+        self.graph
+            .entry(from)
+            .or_default()
+            .insert(to, (Rc::new(converter), cost));
+    }
+
+    pub fn get_direct_converter(&self, from: &Format, to: &Format) -> Option<Rc<ConvertFn>> {
+        self.graph
+            .get(from)
+            .and_then(|map| map.get(to))
+            .map_or(None, |(f, _)| Some(f.clone()))
+    }
+
+    /// Get a converter from `from` to `to`.
+    ///
+    /// If `to` is equals to `from`, return a converter that simply copies the input.
+    pub fn get_converter(&self, from: &Format, to: &Format) -> Option<Rc<ConvertFn>> {
+        if to == from {
+            return Some(Rc::new(|r, w| io::copy(r, w).map(|_| ())));
+        }
+        let path = self.find_shortest_path(from, to)?;
+
+        if path.len() <= 1 {
+            return None;
+        }
+
+        let converters = self.path_to_converters(path);
+
+        Some(Self::compose(converters))
+    }
+
+    fn successors(&self, n: &Format) -> Vec<(Format, u32)> {
+        self.graph
+            .get(&n)
+            .unwrap_or(&HashMap::new())
+            .iter()
+            .map(|(format, (_, cost))| (format.clone(), *cost))
+            .collect::<Vec<(Format, u32)>>()
+    }
+
+    pub fn find_shortest_path(&self, from: &Format, to: &Format) -> Option<Vec<Format>> {
+        Some(dijkstra(from, |n| self.successors(n), |f| f == to)?.0)
+    }
+
+    pub fn path_to_converters(&self, path: Vec<Format>) -> Vec<Rc<ConvertFn>> {
+        path.windows(2)
+            .map(|w| self.get_direct_converter(&w[0], &w[1]).unwrap())
+            .collect()
+    }
 }

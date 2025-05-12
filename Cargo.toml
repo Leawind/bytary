@@ -9,5 +9,7 @@ name = "bytary"
 [dependencies]
 clap = { version = "4.5.37", features = ["derive"] }
 hex = "0.4.3"
+pathfinding = "4.14.0"
 regex = "1.11.1"
+strum = { version = "0.27.1", features = ["derive"] }
 thiserror = "2.0.12"

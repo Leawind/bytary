@@ -1,4 +1,4 @@
-use crate::Format;
+use crate::format::Format;
 use std::io;
 use thiserror::Error;
 
